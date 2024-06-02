@@ -8,16 +8,35 @@
 using namespace std;
 
 #define port 8080
-fd_set fr, fw, fe; /* It conatins 2 elemetns, no. of file discriptors, and array of those file discriptors and can contain at max 64 discriptors*/
-// fr-> socket discripotrs ready to read, fw -> ready to write, fe -> exceptions throwing socket discriptors
 
-void DealWithClient(int client_socket,vector<int> &allClients)
+int socketInit()
+{
+    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (server_socket < 0)
+    {
+        std::cerr << "Error creating socket\n";
+        return 1;
+    }
+    std::cout << "Socket Created : " << server_socket << endl;
+    return server_socket;
+}
+
+sockaddr_in socketAddressInit()
+{
+    struct sockaddr_in server_address;
+    server_address.sin_family = AF_INET;
+    server_address.sin_addr.s_addr = INADDR_ANY; // inet_addr("127.0.0.1") -> inet_adder gives a long value compatible to the acceptable ip address form
+    server_address.sin_port = htons(port);
+    return server_address;
+}
+
+void DealWithClient(int client_socket, vector<int> &allClients)
 {
     char buffer[1024];
-    //const char *buffer = new char[1024];
+    // const char *buffer = new char[1024];
     while (true)
     {
-        int recivedBytes = recv(client_socket, buffer, 1024,0);
+        int recivedBytes = recv(client_socket, buffer, 1024, 0);
 
         buffer[recivedBytes] = '\0';
         if (recivedBytes <= 0)
@@ -26,21 +45,21 @@ void DealWithClient(int client_socket,vector<int> &allClients)
             break;
         }
 
-        //string fromClient(buffer, recivedBytes);
-        std::cout <<buffer << endl;
-    
-        for(auto x:allClients)
+        // string fromClient(buffer, recivedBytes);
+        std::cout << buffer << endl;
+
+        for (auto x : allClients)
         {
-            if(x!=client_socket)
-            send(x,buffer,recivedBytes,0);
+            if (x != client_socket)
+                send(x, buffer, recivedBytes, 0);
         }
     }
 
-    for(int i=0;i<allClients.size();i++)
+    for (int i = 0; i < allClients.size(); i++)
     {
-        if(allClients[i] == client_socket)
+        if (allClients[i] == client_socket)
         {
-            allClients.erase(allClients.begin()+i);
+            allClients.erase(allClients.begin() + i);
             break;
         }
     }
@@ -51,22 +70,14 @@ int main()
 {
 
     // Initilize the socket
-    int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (server_socket < 0)
-    {
-        std::cerr << "Error creating socket\n";
-        return 1;
-    }
-    std::cout << "Socket Created : " << server_socket << endl;
+    int serverSocket = socketInit();
 
     // Initilizeing the environment for sockaddr structure
-    struct sockaddr_in server_address;
-    server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = INADDR_ANY; // inet_addr("127.0.0.1") -> inet_adder gives a long value compatible to the acceptable ip address form
-    server_address.sin_port = htons(port);
+    sockaddr_in serverAddress = socketAddressInit();
+
 
     // Bind the socket to the local port
-    int x = bind(server_socket, (sockaddr *)&server_address, sizeof(sockaddr));
+    int x = bind(serverSocket, (sockaddr *)&serverAddress, sizeof(sockaddr));
     if (x < 0)
     {
         std::cerr << "Error binding socket\n";
@@ -76,7 +87,7 @@ int main()
 
     // Listen to the given port
 
-    x = listen(server_socket, 5);
+    x = listen(serverSocket, 5);
 
     if (x < 0)
     {
@@ -93,8 +104,8 @@ int main()
         int client_socket;
         struct sockaddr_in client_address;
         socklen_t client_address_size = sizeof(client_address);
-        client_socket = accept(server_socket, (struct sockaddr *)&client_address, &client_address_size);
-        
+        client_socket = accept(serverSocket, (struct sockaddr *)&client_address, &client_address_size);
+
         if (client_socket < 0)
         {
             std::cout << "Invalid Client Socket";
@@ -103,12 +114,11 @@ int main()
         std::cout << "Client Accepted" << endl;
         allClients.push_back(client_socket);
 
-
-        t = std::thread(DealWithClient, client_socket,std::ref(allClients));
+        t = std::thread(DealWithClient, client_socket, std::ref(allClients));
         t.detach();
     }
 
-    close(server_socket);
+    close(serverSocket);
 
     return 0;
 }
